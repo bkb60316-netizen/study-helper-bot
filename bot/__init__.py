@@ -1,0 +1,3 @@
+"""
+Study Helper AI Bot
+"""
