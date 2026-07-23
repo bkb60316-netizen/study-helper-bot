@@ -18,6 +18,7 @@ def create_application() -> Application:
     application = (
         Application.builder()
         .token(config.bot_token)
+        .updater(None)
         .build()
     )
 
@@ -36,6 +37,6 @@ def create_application() -> Application:
         )
     )
 
-    logger.info("Telegram application initialized successfully.")
+    logger.info("Telegram Webhook application initialized.")
 
     return application
