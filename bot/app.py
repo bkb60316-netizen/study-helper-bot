@@ -18,7 +18,11 @@ def create_application() -> Application:
     application = (
         Application.builder()
         .token(config.bot_token)
-        .updater(None)
+        application = (
+    Application.builder()
+    .token(config.bot_token)
+    .build()
+)
         .build()
     )
 
