@@ -18,21 +18,11 @@ def create_application() -> Application:
     application = (
         Application.builder()
         .token(config.bot_token)
-        application = (
-    Application.builder()
-    .token(config.bot_token)
-    .build()
-)
         .build()
     )
 
-    application.add_handler(
-        CommandHandler("start", start)
-    )
-
-    application.add_handler(
-        CommandHandler("help", help_command)
-    )
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("help", help_command))
 
     application.add_handler(
         MessageHandler(
@@ -41,6 +31,6 @@ def create_application() -> Application:
         )
     )
 
-    logger.info("Telegram Webhook application initialized.")
+    logger.info("Telegram application initialized successfully.")
 
     return application
