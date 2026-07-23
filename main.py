@@ -16,10 +16,10 @@ def main():
 
     logger.info("Bot started successfully.")
 
-application.run_polling(
-    allowed_updates=None,
-    drop_pending_updates=True,
-)
+    application.run_polling(
+        allowed_updates=None,
+        drop_pending_updates=True,
+    )
 
 
 if __name__ == "__main__":
