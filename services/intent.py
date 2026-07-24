@@ -6,10 +6,8 @@ _GREETING_PATTERNS = [
     r"^hello$",
     r"^hey$",
     r"^hii$",
-    r"^hola$",
     r"^namaste$",
     r"^नमस्ते$",
-    r"^hello वहां$",
     r"good morning",
     r"good evening",
     r"good night",
@@ -20,28 +18,40 @@ _NOTE_PATTERNS = [
     r"\bshort notes?\b",
     r"\bsummary\b",
     r"\bimportant points\b",
-    r"\bpoints?\b",
+    r"\bkey points\b",
+    r"\brevision\b",
+    r"\brevise\b",
+    r"\bmake notes\b",
+    r"\bwrite notes\b",
+    r"\bnotes on\b",
     r"नोट्स?",
     r"सारांश",
     r"संक्षेप",
+    r"पॉइंट्स?",
 ]
 
 _MCQ_PATTERNS = [
     r"\bmcq\b",
-    r"\bquiz\b",
+    r"\bmcqs\b",
     r"\bobjective\b",
+    r"\bquiz\b",
     r"\btest\b",
+    r"\bmultiple choice\b",
     r"बहुविकल्पीय",
     r"प्रश्नोत्तरी",
 ]
 
 _EXPLAIN_PATTERNS = [
     r"\bexplain\b",
-    r"\bexplains?\b",
     r"\bexplanation\b",
-    r"\bhow\b",
-    r"\bwhy\b",
     r"\bwhat is\b",
+    r"\bwhy\b",
+    r"\bhow\b",
+    r"\bsolve\b",
+    r"\bderive\b",
+    r"\bderivation\b",
+    r"\blaw\b",
+    r"\btheory\b",
     r"समझाओ",
     r"समझाइए",
     r"बताओ",
@@ -52,16 +62,11 @@ _EXPLAIN_PATTERNS = [
     r"नियम",
     r"सिद्धांत",
     r"सूत्र",
-    r"law",
-    r"theory",
 ]
 
 
 def _matches_any(text: str, patterns: list[str]) -> bool:
-    for pattern in patterns:
-        if re.search(pattern, text, flags=re.IGNORECASE):
-            return True
-    return False
+    return any(re.search(pattern, text, flags=re.IGNORECASE) for pattern in patterns)
 
 
 def is_greeting(text: str) -> bool:
@@ -85,10 +90,6 @@ def detect_intent(text: str) -> str:
         return "explain"
 
     if "?" in cleaned:
-        return "explain"
-
-    words = cleaned.split()
-    if len(words) >= 2 and any(word in cleaned for word in ["newton", "physics", "chemistry", "math", "biology"]):
         return "explain"
 
     return "chat"
