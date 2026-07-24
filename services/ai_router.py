@@ -12,22 +12,20 @@ class AIRouterError(Exception):
 async def generate_response(user_text: str, intent: str = "chat") -> str:
     provider = (config.default_ai_provider or "openrouter").lower().strip()
 
-    providers = []
     if provider == "google":
-        providers = [_generate_with_google, _generate_with_openrouter]
+        provider_chain = [_generate_with_google, _generate_with_openrouter]
     else:
-        providers = [_generate_with_openrouter, _generate_with_google]
+        provider_chain = [_generate_with_openrouter, _generate_with_google]
 
     last_error: Exception | None = None
 
-    for handler in providers:
+    for handler in provider_chain:
         try:
             return await handler(user_text=user_text, intent=intent)
         except Exception as exc:
             last_error = exc
             logger.warning(f"AI provider failed: {handler.__name__} | {exc}")
 
-    logger.exception("All AI providers failed")
     raise AIRouterError("All AI providers failed") from last_error
 
 
@@ -67,7 +65,7 @@ async def _generate_with_openrouter(user_text: str, intent: str) -> str:
         if not content:
             raise AIRouterError("OpenRouter returned empty content")
         return content.strip()
-    except (KeyError, IndexError) as exc:
+    except (KeyError, IndexError, TypeError) as exc:
         raise AIRouterError("Unexpected OpenRouter response format") from exc
 
 
@@ -85,16 +83,12 @@ async def _generate_with_google(user_text: str, intent: str) -> str:
 
     payload = {
         "systemInstruction": {
-            "parts": [
-                {"text": system_prompt}
-            ]
+            "parts": [{"text": system_prompt}]
         },
         "contents": [
             {
                 "role": "user",
-                "parts": [
-                    {"text": user_text}
-                ]
+                "parts": [{"text": user_text}],
             }
         ],
         "generationConfig": {
