@@ -14,7 +14,6 @@ async def message_handler(
         return
 
     user_message = update.message.text.strip()
-
     logger.info(f"Message Received: {user_message}")
 
     if is_greeting(user_message):
