@@ -2,6 +2,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from services.ai_router import generate_response
+from services.history import save_chat_history
 from services.intent import detect_intent, is_greeting
 from services.logger import logger
 
@@ -13,14 +14,27 @@ async def message_handler(
     if not update.message or not update.message.text:
         return
 
+    user = update.effective_user
+    if user is None:
+        return
+
     user_message = update.message.text.strip()
     logger.info(f"Message Received: {user_message}")
 
     if is_greeting(user_message):
-        await update.message.reply_text(
+        reply_text = (
             "👋 Hello!\n\n"
             "मैं Study Helper AI हूँ।\n"
             "आप अपना कोई भी Study Question पूछ सकते हैं।"
+        )
+        await update.message.reply_text(reply_text)
+        await save_chat_history(
+            telegram_user_id=user.id,
+            username=user.username,
+            first_name=user.first_name,
+            user_message=user_message,
+            bot_reply=reply_text,
+            intent="greeting",
         )
         return
 
@@ -36,3 +50,12 @@ async def message_handler(
         )
 
     await update.message.reply_text(ai_reply)
+
+    await save_chat_history(
+        telegram_user_id=user.id,
+        username=user.username,
+        first_name=user.first_name,
+        user_message=user_message,
+        bot_reply=ai_reply,
+        intent=intent,
+    )
