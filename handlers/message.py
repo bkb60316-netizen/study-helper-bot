@@ -28,6 +28,7 @@ async def message_handler(
             "आप अपना कोई भी Study Question पूछ सकते हैं।"
         )
         await update.message.reply_text(reply_text)
+
         await save_chat_history(
             telegram_user_id=user.id,
             username=user.username,
