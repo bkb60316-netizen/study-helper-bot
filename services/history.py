@@ -12,6 +12,10 @@ def _save_chat_history_sync(
     bot_reply: str,
     intent: str,
 ) -> None:
+    logger.info(
+        f"Saving chat history | user_id={telegram_user_id} | intent={intent}"
+    )
+
     client = database.get_client()
 
     payload = {
@@ -23,7 +27,12 @@ def _save_chat_history_sync(
         "intent": intent,
     }
 
-    client.table("chat_history").insert(payload).execute()
+    result = client.table("chat_history").insert(payload).execute()
+
+    logger.info(
+        f"Chat history insert response received | user_id={telegram_user_id}"
+    )
+    return result
 
 
 async def save_chat_history(
@@ -44,5 +53,10 @@ async def save_chat_history(
             bot_reply,
             intent,
         )
+        logger.info(
+            f"Chat history saved successfully | user_id={telegram_user_id}"
+        )
     except Exception as exc:
-        logger.warning(f"Could not save chat history: {exc}")
+        logger.exception(
+            f"Could not save chat history | user_id={telegram_user_id} | error={exc}"
+)
