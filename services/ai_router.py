@@ -9,8 +9,13 @@ class AIRouterError(Exception):
     pass
 
 
-async def generate_response(user_text: str, intent: str = "chat") -> str:
+async def generate_response(
+    user_text: str,
+    intent: str = "chat",
+    history: list[dict] | None = None,
+) -> str:
     provider = (config.default_ai_provider or "openrouter").lower().strip()
+    history = history or []
 
     if provider == "google":
         provider_chain = [_generate_with_google, _generate_with_openrouter]
@@ -21,7 +26,11 @@ async def generate_response(user_text: str, intent: str = "chat") -> str:
 
     for handler in provider_chain:
         try:
-            return await handler(user_text=user_text, intent=intent)
+            return await handler(
+                user_text=user_text,
+                intent=intent,
+                history=history,
+            )
         except Exception as exc:
             last_error = exc
             logger.warning(f"AI provider failed: {handler.__name__} | {exc}")
@@ -29,18 +38,47 @@ async def generate_response(user_text: str, intent: str = "chat") -> str:
     raise AIRouterError("All AI providers failed") from last_error
 
 
-async def _generate_with_openrouter(user_text: str, intent: str) -> str:
+def _build_messages(user_text: str, intent: str, history: list[dict]) -> list[dict]:
+    messages = [
+        {
+            "role": "system",
+            "content": build_system_prompt(intent),
+        }
+    ]
+
+    # keep only recent context
+    for item in history[-10:]:
+        role = item.get("role")
+        content = item.get("content")
+        if role in ("user", "assistant") and content:
+            messages.append(
+                {
+                    "role": role,
+                    "content": content,
+                }
+            )
+
+    messages.append(
+        {
+            "role": "user",
+            "content": user_text,
+        }
+    )
+
+    return messages
+
+
+async def _generate_with_openrouter(
+    user_text: str,
+    intent: str,
+    history: list[dict],
+) -> str:
     if not config.openrouter_api_key:
         raise AIRouterError("OPENROUTER_API_KEY is missing")
 
-    system_prompt = build_system_prompt(intent)
-
     payload = {
         "model": config.openrouter_model,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_text},
-        ],
+        "messages": _build_messages(user_text, intent, history),
         "temperature": 0.4,
     }
 
@@ -69,7 +107,11 @@ async def _generate_with_openrouter(user_text: str, intent: str) -> str:
         raise AIRouterError("Unexpected OpenRouter response format") from exc
 
 
-async def _generate_with_google(user_text: str, intent: str) -> str:
+async def _generate_with_google(
+    user_text: str,
+    intent: str,
+    history: list[dict],
+) -> str:
     if not config.google_api_key:
         raise AIRouterError("GOOGLE_API_KEY is missing")
 
@@ -81,16 +123,32 @@ async def _generate_with_google(user_text: str, intent: str) -> str:
         f"?key={config.google_api_key}"
     )
 
+    contents = []
+
+    # convert chat history into Gemini format
+    for item in history[-10:]:
+        role = item.get("role")
+        content = item.get("content")
+        if role in ("user", "assistant") and content:
+            contents.append(
+                {
+                    "role": role,
+                    "parts": [{"text": content}],
+                }
+            )
+
+    contents.append(
+        {
+            "role": "user",
+            "parts": [{"text": user_text}],
+        }
+    )
+
     payload = {
         "systemInstruction": {
             "parts": [{"text": system_prompt}]
         },
-        "contents": [
-            {
-                "role": "user",
-                "parts": [{"text": user_text}],
-            }
-        ],
+        "contents": contents,
         "generationConfig": {
             "temperature": 0.4,
             "topP": 0.95,
