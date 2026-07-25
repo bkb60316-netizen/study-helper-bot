@@ -5,6 +5,7 @@ from services.ai_router import generate_response
 from services.history import save_chat_history
 from services.intent import detect_intent, is_greeting
 from services.logger import logger
+from services.memory import get_recent_chat_history
 
 
 async def message_handler(
@@ -40,9 +41,14 @@ async def message_handler(
         return
 
     intent = detect_intent(user_message)
+    memory = get_recent_chat_history(user.id, limit=6)
 
     try:
-        ai_reply = await generate_response(user_message, intent=intent)
+        ai_reply = await generate_response(
+            user_text=user_message,
+            intent=intent,
+            history=memory,
+        )
     except Exception as exc:
         logger.exception(f"AI response failed: {exc}")
         ai_reply = (
