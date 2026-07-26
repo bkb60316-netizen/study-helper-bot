@@ -39,6 +39,7 @@ _MCQ_PATTERNS = [
     r"\bmultiple choice\b",
     r"बहुविकल्पीय",
     r"प्रश्नोत्तरी",
+    r"क्विज़",
 ]
 
 _EXPLAIN_PATTERNS = [
