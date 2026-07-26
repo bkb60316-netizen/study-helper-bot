@@ -32,6 +32,14 @@ def build_system_prompt(intent: str) -> str:
             "and give the answer key at the end."
         )
 
+    if intent == "quiz":
+        return (
+            BASE_PROMPT
+            + "\n\nTask: Create a daily quiz with 5 multiple-choice questions, "
+            "options A/B/C/D, and the answer key at the end. "
+            "Use the student's recent chat context if helpful."
+        )
+
     if intent == "explain":
         return (
             BASE_PROMPT
@@ -39,13 +47,7 @@ def build_system_prompt(intent: str) -> str:
             "like a good teacher."
         )
 
-    if intent == "quiz":
-        return (
-            BASE_PROMPT
-            + "\n\nTask: Create a short quiz with questions and answers."
-        )
-
     return (
         BASE_PROMPT
         + "\n\nTask: Answer the user's study question directly and helpfully."
-        )
+    )
