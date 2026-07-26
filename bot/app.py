@@ -14,10 +14,10 @@ from handlers.message import message_handler
 from handlers.about import about_command
 from handlers.language import language_command
 from handlers.settings import settings_command
+from handlers.quiz import quiz_command
 
 
 def create_application() -> Application:
-
     application = (
         Application.builder()
         .token(config.bot_token)
@@ -29,6 +29,7 @@ def create_application() -> Application:
     application.add_handler(CommandHandler("about", about_command))
     application.add_handler(CommandHandler("language", language_command))
     application.add_handler(CommandHandler("settings", settings_command))
+    application.add_handler(CommandHandler("quiz", quiz_command))
 
     application.add_handler(
         MessageHandler(
