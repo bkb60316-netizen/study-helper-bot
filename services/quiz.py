@@ -276,17 +276,34 @@ async def generate_quiz_text_for_user(
 ) -> str:
     memory = await asyncio.to_thread(get_recent_chat_history, telegram_user_id, 8)
 
+    recent_user_topics: list[str] = []
+    for item in memory:
+        if item.get("role") == "user":
+            text = (item.get("content") or "").strip()
+            if text:
+                recent_user_topics.append(text)
+
+    recent_context = (
+        "\n".join(recent_user_topics[-5:])
+        if recent_user_topics
+        else "No recent study context available."
+    )
+
     prompt = (
         f"Create a daily quiz for a student.\n"
-        f"Topic: {quiz_topic}\n"
+        f"Primary Topic: {quiz_topic}\n"
         f"Difficulty: {difficulty}\n\n"
-        "Requirements:\n"
-        "- Generate 5 multiple-choice questions.\n"
+        f"User's recent study chat context:\n{recent_context}\n\n"
+        "Rules:\n"
+        "- Make the quiz mainly from the user's recent study chats.\n"
+        "- If recent chats clearly point to a subject/topic, focus on that topic.\n"
+        "- If recent chats are mixed, create a quiz from the most important study topic.\n"
+        "- Generate exactly 5 multiple-choice questions.\n"
         "- Provide options A, B, C, D for each question.\n"
         "- Give the answer key at the end.\n"
         "- Keep language simple and student-friendly.\n"
-        "- Use the user's recent chat context if it helps.\n"
-        "- Keep the output clear and easy to read.\n"
+        "- Do not mention that you used chat history.\n"
+        "- Keep the output clean and easy to read.\n"
     )
 
     return await generate_response(prompt, intent="quiz", history=memory)
@@ -403,4 +420,4 @@ def register_quiz_scheduler(application: Application) -> None:
         interval=300,
         first=60,
         name="daily_quiz_checker",
-    )
+        )
