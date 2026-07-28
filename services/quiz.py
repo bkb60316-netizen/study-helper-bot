@@ -12,6 +12,7 @@ from services.memory import get_recent_chat_history
 
 IST = ZoneInfo("Asia/Kolkata")
 
+DEFAULT_QUIZ_ENABLED = True
 DEFAULT_QUIZ_TIME = "20:00"
 DEFAULT_QUIZ_TOPIC = "All subjects"
 DEFAULT_DIFFICULTY = "easy"
@@ -55,7 +56,10 @@ def normalize_difficulty(value: str) -> str:
     return aliases[cleaned]
 
 
-def compute_next_run_at(quiz_time: str, from_dt_utc: datetime | None = None) -> datetime:
+def compute_next_run_at(
+    quiz_time: str,
+    from_dt_utc: datetime | None = None,
+) -> datetime:
     current_utc = from_dt_utc or datetime.now(timezone.utc)
     current_ist = current_utc.astimezone(IST)
 
@@ -107,7 +111,7 @@ def _save_setting_sync(
         payload = {
             "username": username if username is not None else existing.get("username"),
             "first_name": first_name if first_name is not None else existing.get("first_name"),
-            "enabled": enabled if enabled is not None else existing.get("enabled", False),
+            "enabled": enabled if enabled is not None else existing.get("enabled", DEFAULT_QUIZ_ENABLED),
             "quiz_time": quiz_time if quiz_time is not None else existing.get("quiz_time", DEFAULT_QUIZ_TIME),
             "quiz_topic": quiz_topic if quiz_topic is not None else existing.get("quiz_topic", DEFAULT_QUIZ_TOPIC),
             "difficulty": difficulty if difficulty is not None else existing.get("difficulty", DEFAULT_DIFFICULTY),
@@ -129,7 +133,7 @@ def _save_setting_sync(
         "telegram_user_id": telegram_user_id,
         "username": username,
         "first_name": first_name,
-        "enabled": enabled if enabled is not None else False,
+        "enabled": enabled if enabled is not None else DEFAULT_QUIZ_ENABLED,
         "quiz_time": quiz_time or DEFAULT_QUIZ_TIME,
         "quiz_topic": quiz_topic or DEFAULT_QUIZ_TOPIC,
         "difficulty": difficulty or DEFAULT_DIFFICULTY,
@@ -141,6 +145,29 @@ def _save_setting_sync(
 
     client.table("daily_quiz_settings").insert(payload).execute()
     return _fetch_setting_sync(telegram_user_id) or payload
+
+
+def _ensure_default_setting_sync(
+    telegram_user_id: int,
+    username: str | None = None,
+    first_name: str | None = None,
+) -> dict:
+    existing = _fetch_setting_sync(telegram_user_id)
+    if existing:
+        return existing
+
+    next_run_at = compute_next_run_at(DEFAULT_QUIZ_TIME)
+
+    return _save_setting_sync(
+        telegram_user_id=telegram_user_id,
+        username=username,
+        first_name=first_name,
+        enabled=True,
+        quiz_time=DEFAULT_QUIZ_TIME,
+        quiz_topic=DEFAULT_QUIZ_TOPIC,
+        difficulty=DEFAULT_DIFFICULTY,
+        next_run_at=next_run_at,
+    )
 
 
 def _list_due_settings_sync(now_utc_iso: str) -> list[dict]:
@@ -175,6 +202,19 @@ async def get_quiz_setting(telegram_user_id: int) -> dict | None:
     return await asyncio.to_thread(_fetch_setting_sync, telegram_user_id)
 
 
+async def ensure_default_quiz_setting(
+    telegram_user_id: int,
+    username: str | None = None,
+    first_name: str | None = None,
+) -> dict:
+    return await asyncio.to_thread(
+        _ensure_default_setting_sync,
+        telegram_user_id,
+        username,
+        first_name,
+    )
+
+
 async def save_quiz_setting(
     telegram_user_id: int,
     username: str | None = None,
@@ -204,7 +244,6 @@ async def enable_quiz_for_user(
     first_name: str | None = None,
 ) -> dict:
     setting = await get_quiz_setting(telegram_user_id)
-
     quiz_time = (setting or {}).get("quiz_time", DEFAULT_QUIZ_TIME)
     next_run_at = compute_next_run_at(quiz_time)
 
@@ -235,7 +274,7 @@ async def generate_quiz_text_for_user(
     quiz_topic: str,
     difficulty: str,
 ) -> str:
-    memory = get_recent_chat_history(telegram_user_id, limit=8)
+    memory = await asyncio.to_thread(get_recent_chat_history, telegram_user_id, 8)
 
     prompt = (
         f"Create a daily quiz for a student.\n"
@@ -275,12 +314,13 @@ def build_quiz_status_text(setting: dict | None) -> str:
     if not setting:
         return (
             "📅 Daily Quiz\n\n"
-            "अभी कोई quiz setting नहीं बनी है.\n\n"
-            "Use:\n"
-            "/quiz on\n"
-            "/quiz time 20:30\n"
+            "यह by default ON रहेगा.\n\n"
+            "Commands:\n"
+            "/quiz off\n"
+            "/quiz time 20:00\n"
             "/quiz topic Physics\n"
-            "/quiz difficulty medium"
+            "/quiz difficulty medium\n"
+            "/quiz now"
         )
 
     enabled = "ON" if setting.get("enabled") else "OFF"
@@ -297,7 +337,6 @@ def build_quiz_status_text(setting: dict | None) -> str:
         f"Difficulty: {difficulty}\n"
         f"Next Run: {next_run_at}\n\n"
         "Commands:\n"
-        "/quiz on\n"
         "/quiz off\n"
         "/quiz time HH:MM\n"
         "/quiz topic <topic>\n"
@@ -364,4 +403,4 @@ def register_quiz_scheduler(application: Application) -> None:
         interval=300,
         first=60,
         name="daily_quiz_checker",
-  )
+    )
