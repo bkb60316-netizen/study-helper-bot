@@ -1,3 +1,5 @@
+import asyncio
+
 from telegram import Update
 from telegram.ext import ContextTypes
 
@@ -6,6 +8,7 @@ from services.history import save_chat_history
 from services.intent import detect_intent, is_greeting
 from services.logger import logger
 from services.memory import get_recent_chat_history
+from services.quiz import ensure_default_quiz_setting
 
 
 async def message_handler(
@@ -22,6 +25,12 @@ async def message_handler(
     user_message = update.message.text.strip()
     logger.info(f"Message Received: {user_message}")
 
+    await ensure_default_quiz_setting(
+        telegram_user_id=user.id,
+        username=user.username,
+        first_name=user.first_name,
+    )
+
     if is_greeting(user_message):
         reply_text = (
             "👋 Hello!\n\n"
@@ -29,7 +38,6 @@ async def message_handler(
             "आप अपना कोई भी Study Question पूछ सकते हैं।"
         )
         await update.message.reply_text(reply_text)
-
         await save_chat_history(
             telegram_user_id=user.id,
             username=user.username,
@@ -41,7 +49,7 @@ async def message_handler(
         return
 
     intent = detect_intent(user_message)
-    memory = get_recent_chat_history(user.id, limit=6)
+    memory = await asyncio.to_thread(get_recent_chat_history, user.id, 6)
 
     try:
         ai_reply = await generate_response(
@@ -65,4 +73,4 @@ async def message_handler(
         user_message=user_message,
         bot_reply=ai_reply,
         intent=intent,
-        )
+    )
