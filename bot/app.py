@@ -10,11 +10,11 @@ from services.logger import logger
 
 from handlers.start import start
 from handlers.help import help_command
-from handlers.message import message_handler
 from handlers.about import about_command
 from handlers.language import language_command
 from handlers.settings import settings_command
 from handlers.quiz import quiz_command
+from handlers.message import message_handler
 
 
 def create_application() -> Application:
@@ -38,6 +38,6 @@ def create_application() -> Application:
         )
     )
 
-    logger.info("Telegram application initialized successfully.")
+    logger.info("Study Helper AI initialized successfully.")
 
     return application
