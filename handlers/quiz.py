@@ -6,6 +6,7 @@ from services.quiz import (
     compute_next_run_at,
     disable_quiz_for_user,
     enable_quiz_for_user,
+    ensure_default_quiz_setting,
     generate_quiz_text_for_user,
     get_quiz_setting,
     normalize_difficulty,
@@ -26,8 +27,13 @@ async def quiz_command(
     args = context.args or []
     action = args[0].lower() if args else "status"
 
+    setting = await ensure_default_quiz_setting(
+        telegram_user_id=user.id,
+        username=user.username,
+        first_name=user.first_name,
+    )
+
     if action in {"help", "status"}:
-        setting = await get_quiz_setting(user.id)
         await update.message.reply_text(build_quiz_status_text(setting))
         return
 
@@ -45,21 +51,17 @@ async def quiz_command(
         return
 
     if action in {"off", "disable", "stop"}:
-        setting = await disable_quiz_for_user(
+        await disable_quiz_for_user(
             telegram_user_id=user.id,
             username=user.username,
             first_name=user.first_name,
         )
-        await update.message.reply_text(
-            "🛑 Daily quiz disabled."
-        )
+        await update.message.reply_text("🛑 Daily quiz disabled.")
         return
 
     if action == "time":
         if len(args) < 2:
-            await update.message.reply_text(
-                "Use: /quiz time 20:30"
-            )
+            await update.message.reply_text("Use: /quiz time 20:30")
             return
 
         try:
@@ -77,7 +79,7 @@ async def quiz_command(
 
         if setting.get("enabled"):
             next_run_at = compute_next_run_at(quiz_time)
-            setting = await save_quiz_setting(
+            await save_quiz_setting(
                 telegram_user_id=user.id,
                 next_run_at=next_run_at,
             )
@@ -89,13 +91,12 @@ async def quiz_command(
 
     if action == "topic":
         if len(args) < 2:
-            await update.message.reply_text(
-                "Use: /quiz topic Physics"
-            )
+            await update.message.reply_text("Use: /quiz topic Physics")
             return
 
         topic = " ".join(args[1:]).strip()
-        setting = await save_quiz_setting(
+
+        await save_quiz_setting(
             telegram_user_id=user.id,
             username=user.username,
             first_name=user.first_name,
@@ -109,9 +110,7 @@ async def quiz_command(
 
     if action in {"difficulty", "level"}:
         if len(args) < 2:
-            await update.message.reply_text(
-                "Use: /quiz difficulty easy"
-            )
+            await update.message.reply_text("Use: /quiz difficulty easy")
             return
 
         try:
@@ -120,7 +119,7 @@ async def quiz_command(
             await update.message.reply_text(str(exc))
             return
 
-        setting = await save_quiz_setting(
+        await save_quiz_setting(
             telegram_user_id=user.id,
             username=user.username,
             first_name=user.first_name,
@@ -133,10 +132,8 @@ async def quiz_command(
         return
 
     if action == "now":
-        setting = await get_quiz_setting(user.id)
-
-        quiz_topic = (setting or {}).get("quiz_topic", "All subjects")
-        difficulty = (setting or {}).get("difficulty", "easy")
+        quiz_topic = setting.get("quiz_topic", "All subjects")
+        difficulty = setting.get("difficulty", "easy")
 
         try:
             quiz_text = await generate_quiz_text_for_user(
@@ -163,10 +160,9 @@ async def quiz_command(
     await update.message.reply_text(
         "Use:\n"
         "/quiz status\n"
-        "/quiz on\n"
         "/quiz off\n"
         "/quiz time 20:30\n"
         "/quiz topic Physics\n"
         "/quiz difficulty medium\n"
         "/quiz now"
-      )
+                                       )
