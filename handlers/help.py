@@ -3,16 +3,16 @@ from telegram.ext import ContextTypes
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
     help_text = (
-        "📖 *Study Helper AI Help*\n\n"
-        "/start - Bot शुरू करें\n"
-        "/help - सहायता देखें\n\n"
-        "आप मुझसे किसी भी विषय का सवाल पूछ सकते हैं।\n"
-        "जल्द ही और भी फीचर्स जोड़े जाएंगे।"
+        "📖 Study Helper AI Help\n\n"
+        "/start - Start the bot\n"
+        "/help - View this help\n"
+        "/about - About this bot\n"
+        "/language - Choose or change your study language\n"
+        "/settings - View your current settings\n"
+        "/quiz - Daily quiz controls\n\n"
+        "Before you choose a language, I will only show the language picker.\n"
+        "After you choose one, AI replies and quizzes will follow that language."
     )
 
-    await update.message.reply_text(
-        help_text,
-        parse_mode="Markdown",
-    )
+    await update.message.reply_text(help_text)
