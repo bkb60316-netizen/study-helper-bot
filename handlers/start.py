@@ -1,44 +1,40 @@
-from telegram import ReplyKeyboardMarkup, KeyboardButton, Update
+from telegram import Update
 from telegram.ext import ContextTypes
 
-from services.quiz import ensure_default_quiz_setting
+from services.user_settings import (
+    build_language_keyboard,
+    get_user_language_profile,
+)
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
+    current_language_name = None
 
-    keyboard = ReplyKeyboardMarkup(
-        [
-            [KeyboardButton("🤖 AI Assistant"), KeyboardButton("📅 Daily Quiz")],
-            [KeyboardButton("📚 My History"), KeyboardButton("⚙️ Settings")],
-            [KeyboardButton("ℹ️ Help"), KeyboardButton("🌐 Language")],
-        ],
-        resize_keyboard=True,
-        one_time_keyboard=False,
-    )
+    if user:
+        profile = await get_user_language_profile(user.id)
+        if profile:
+            current_language_name = profile["native_name"]
 
     welcome_text = (
-        "🎓 *Welcome to Study Helper AI*\n\n"
-        "मैं आपका AI Study Assistant हूँ।\n\n"
-        "✨ मैं आपकी मदद कर सकता हूँ:\n"
-        "📚 पढ़ाई में\n"
-        "📝 नोट्स बनाने में\n"
-        "❓ सवाल हल करने में\n"
-        "🧠 Concepts समझाने में\n"
-        "📅 Daily Quiz देने में\n\n"
-        "Daily Quiz अब by default ON रहेगा.\n"
-        "शुरू करने के लिए कोई भी सवाल भेजें या नीचे menu use करें।"
+        "🎓 Welcome to Study Helper AI\n\n"
+        "I can help you with explanations, notes, MCQs, daily quizzes, "
+        "and revision based on your chat history.\n\n"
+        "Please choose the language you want to study in.\n"
+        "After you choose one, I will reply only in that language."
     )
+
+    if current_language_name:
+        welcome_text += (
+            f"\n\nCurrent language: {current_language_name}\n"
+            "You can change it anytime with /language."
+        )
+    else:
+        welcome_text += (
+            "\n\nPlease choose your study language to continue."
+        )
 
     await update.message.reply_text(
         welcome_text,
-        parse_mode="Markdown",
-        reply_markup=keyboard,
-    )
-
-    if user:
-        await ensure_default_quiz_setting(
-            telegram_user_id=user.id,
-            username=user.username,
-            first_name=user.first_name,
-    )
+        reply_markup=build_language_keyboard(),
+        )
