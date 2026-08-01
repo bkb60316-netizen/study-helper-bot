@@ -175,4 +175,4 @@ async def quiz_command(
         "/quiz topic Physics\n"
         "/quiz difficulty medium\n"
         "/quiz now"
-    )
+        )
