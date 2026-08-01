@@ -1,6 +1,7 @@
 from telegram import Update
 from telegram.ext import ContextTypes
 
+from services.ui_localizer import localize_ui_text
 from services.user_settings import (
     build_language_keyboard,
     get_user_language_profile,
@@ -9,11 +10,13 @@ from services.user_settings import (
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
+    preferred_instruction = None
     current_language_name = None
 
     if user:
         profile = await get_user_language_profile(user.id)
         if profile:
+            preferred_instruction = profile["instruction"]
             current_language_name = profile["native_name"]
 
     welcome_text = (
@@ -30,11 +33,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "You can change it anytime with /language."
         )
     else:
-        welcome_text += (
-            "\n\nPlease choose your study language to continue."
-        )
+        welcome_text += "\n\nPlease choose your study language to continue."
+
+    if preferred_instruction:
+        welcome_text = await localize_ui_text(welcome_text, preferred_instruction)
 
     await update.message.reply_text(
         welcome_text,
         reply_markup=build_language_keyboard(),
-        )
+    )
