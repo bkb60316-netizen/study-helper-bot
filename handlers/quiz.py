@@ -6,13 +6,17 @@ from services.quiz import (
     compute_next_run_at,
     disable_quiz_for_user,
     enable_quiz_for_user,
-    ensure_default_quiz_setting,
     generate_quiz_text_for_user,
     get_quiz_setting,
     normalize_difficulty,
     normalize_quiz_time,
     save_quiz_history,
     save_quiz_setting,
+)
+from services.user_settings import (
+    build_language_keyboard,
+    build_language_prompt_text,
+    get_user_language_profile,
 )
 
 
@@ -24,14 +28,19 @@ async def quiz_command(
         return
 
     user = update.effective_user
+    profile = await get_user_language_profile(user.id)
+
+    if profile is None:
+        await update.message.reply_text(
+            build_language_prompt_text(),
+            reply_markup=build_language_keyboard(),
+        )
+        return
+
     args = context.args or []
     action = args[0].lower() if args else "status"
 
-    setting = await ensure_default_quiz_setting(
-        telegram_user_id=user.id,
-        username=user.username,
-        first_name=user.first_name,
-    )
+    setting = await get_quiz_setting(user.id)
 
     if action in {"help", "status"}:
         await update.message.reply_text(build_quiz_status_text(setting))
@@ -132,14 +141,15 @@ async def quiz_command(
         return
 
     if action == "now":
-        quiz_topic = setting.get("quiz_topic", "All subjects")
-        difficulty = setting.get("difficulty", "easy")
+        quiz_topic = (setting or {}).get("quiz_topic", "All subjects")
+        difficulty = (setting or {}).get("difficulty", "easy")
 
         try:
             quiz_text = await generate_quiz_text_for_user(
                 telegram_user_id=user.id,
                 quiz_topic=quiz_topic,
                 difficulty=difficulty,
+                preferred_language_instruction=profile["instruction"],
             )
         except Exception:
             await update.message.reply_text(
@@ -165,4 +175,4 @@ async def quiz_command(
         "/quiz topic Physics\n"
         "/quiz difficulty medium\n"
         "/quiz now"
-                                       )
+    )
