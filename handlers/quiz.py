@@ -171,7 +171,7 @@ async def quiz_command(
         "Use:\n"
         "/quiz status\n"
         "/quiz off\n"
-        "/quiz time 20:30\n"
+        "/quiz time 20:00\n"
         "/quiz topic Physics\n"
         "/quiz difficulty medium\n"
         "/quiz now"
