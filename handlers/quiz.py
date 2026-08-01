@@ -13,6 +13,7 @@ from services.quiz import (
     save_quiz_history,
     save_quiz_setting,
 )
+from services.ui_localizer import localize_ui_text
 from services.user_settings import (
     build_language_keyboard,
     build_language_prompt_text,
@@ -41,9 +42,12 @@ async def quiz_command(
     action = args[0].lower() if args else "status"
 
     setting = await get_quiz_setting(user.id)
+    preferred_instruction = profile["instruction"]
 
     if action in {"help", "status"}:
-        await update.message.reply_text(build_quiz_status_text(setting))
+        text = build_quiz_status_text(setting)
+        text = await localize_ui_text(text, preferred_instruction)
+        await update.message.reply_text(text)
         return
 
     if action in {"on", "enable", "start"}:
@@ -52,11 +56,14 @@ async def quiz_command(
             username=user.username,
             first_name=user.first_name,
         )
-        await update.message.reply_text(
+
+        text = (
             "✅ Daily quiz enabled.\n\n"
             f"Time: {setting.get('quiz_time', '20:00')} IST\n"
             f"Topic: {setting.get('quiz_topic', 'All subjects')}"
         )
+        text = await localize_ui_text(text, preferred_instruction)
+        await update.message.reply_text(text)
         return
 
     if action in {"off", "disable", "stop"}:
@@ -65,18 +72,25 @@ async def quiz_command(
             username=user.username,
             first_name=user.first_name,
         )
-        await update.message.reply_text("🛑 Daily quiz disabled.")
+
+        text = "🛑 Daily quiz disabled."
+        text = await localize_ui_text(text, preferred_instruction)
+        await update.message.reply_text(text)
         return
 
     if action == "time":
         if len(args) < 2:
-            await update.message.reply_text("Use: /quiz time 20:30")
+            text = "Use: /quiz time 20:30"
+            text = await localize_ui_text(text, preferred_instruction)
+            await update.message.reply_text(text)
             return
 
         try:
             quiz_time = normalize_quiz_time(args[1])
         except ValueError as exc:
-            await update.message.reply_text(str(exc))
+            text = str(exc)
+            text = await localize_ui_text(text, preferred_instruction)
+            await update.message.reply_text(text)
             return
 
         setting = await save_quiz_setting(
@@ -93,14 +107,16 @@ async def quiz_command(
                 next_run_at=next_run_at,
             )
 
-        await update.message.reply_text(
-            f"⏰ Quiz time set to {quiz_time} IST."
-        )
+        text = f"⏰ Quiz time set to {quiz_time} IST."
+        text = await localize_ui_text(text, preferred_instruction)
+        await update.message.reply_text(text)
         return
 
     if action == "topic":
         if len(args) < 2:
-            await update.message.reply_text("Use: /quiz topic Physics")
+            text = "Use: /quiz topic Physics"
+            text = await localize_ui_text(text, preferred_instruction)
+            await update.message.reply_text(text)
             return
 
         topic = " ".join(args[1:]).strip()
@@ -112,20 +128,24 @@ async def quiz_command(
             quiz_topic=topic,
         )
 
-        await update.message.reply_text(
-            f"📚 Quiz topic set to: {topic}"
-        )
+        text = f"📚 Quiz topic set to: {topic}"
+        text = await localize_ui_text(text, preferred_instruction)
+        await update.message.reply_text(text)
         return
 
     if action in {"difficulty", "level"}:
         if len(args) < 2:
-            await update.message.reply_text("Use: /quiz difficulty easy")
+            text = "Use: /quiz difficulty easy"
+            text = await localize_ui_text(text, preferred_instruction)
+            await update.message.reply_text(text)
             return
 
         try:
             difficulty = normalize_difficulty(args[1])
         except ValueError as exc:
-            await update.message.reply_text(str(exc))
+            text = str(exc)
+            text = await localize_ui_text(text, preferred_instruction)
+            await update.message.reply_text(text)
             return
 
         await save_quiz_setting(
@@ -135,9 +155,9 @@ async def quiz_command(
             difficulty=difficulty,
         )
 
-        await update.message.reply_text(
-            f"🎯 Quiz difficulty set to: {difficulty}"
-        )
+        text = f"🎯 Quiz difficulty set to: {difficulty}"
+        text = await localize_ui_text(text, preferred_instruction)
+        await update.message.reply_text(text)
         return
 
     if action == "now":
@@ -149,12 +169,12 @@ async def quiz_command(
                 telegram_user_id=user.id,
                 quiz_topic=quiz_topic,
                 difficulty=difficulty,
-                preferred_language_instruction=profile["instruction"],
+                preferred_language_instruction=preferred_instruction,
             )
         except Exception:
-            await update.message.reply_text(
-                "⚠️ अभी quiz generate नहीं हो पाया."
-            )
+            text = "⚠️ अभी quiz generate नहीं हो पाया."
+            text = await localize_ui_text(text, preferred_instruction)
+            await update.message.reply_text(text)
             return
 
         await update.message.reply_text(quiz_text)
@@ -167,12 +187,14 @@ async def quiz_command(
         )
         return
 
-    await update.message.reply_text(
+    text = (
         "Use:\n"
         "/quiz status\n"
         "/quiz off\n"
-        "/quiz time 20:00\n"
+        "/quiz time 20:30\n"
         "/quiz topic Physics\n"
         "/quiz difficulty medium\n"
         "/quiz now"
-        )
+    )
+    text = await localize_ui_text(text, preferred_instruction)
+    await update.message.reply_text(text)
