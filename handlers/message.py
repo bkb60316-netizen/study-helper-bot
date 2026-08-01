@@ -1,6 +1,6 @@
 import asyncio
 
-from telegram import ReplyKeyboardMarkup, KeyboardButton, Update
+from telegram import Update
 from telegram.ext import ContextTypes
 
 from services.ai_router import generate_response
@@ -8,17 +8,10 @@ from services.history import save_chat_history
 from services.intent import detect_intent, is_greeting
 from services.logger import logger
 from services.memory import get_recent_chat_history
-from services.quiz import ensure_default_quiz_setting
-
-
-MENU_KEYBOARD = ReplyKeyboardMarkup(
-    [
-        [KeyboardButton("🤖 AI Assistant"), KeyboardButton("📅 Daily Quiz")],
-        [KeyboardButton("📚 My History"), KeyboardButton("⚙️ Settings")],
-        [KeyboardButton("ℹ️ Help"), KeyboardButton("🌐 Language")],
-    ],
-    resize_keyboard=True,
-    one_time_keyboard=False,
+from services.user_settings import (
+    build_language_keyboard,
+    build_language_required_text,
+    get_user_language_profile,
 )
 
 
@@ -36,64 +29,34 @@ async def message_handler(
     user_message = update.message.text.strip()
     logger.info(f"Message Received: {user_message}")
 
-    await ensure_default_quiz_setting(
-        telegram_user_id=user.id,
-        username=user.username,
-        first_name=user.first_name,
-    )
+    profile = await get_user_language_profile(user.id)
 
-    menu_text = user_message.lower()
-
-    if user_message == "📅 Daily Quiz":
-        setting = await context.application.bot_data.get("quiz_status_handler", None) if False else None
+    if profile is None:
         await update.message.reply_text(
-            "📅 Daily Quiz\n\n"
-            "Quiz by default ON है.\n"
-            "आप चाहें तो /quiz लिखकर settings देख सकते हैं."
+            build_language_required_text(),
+            reply_markup=build_language_keyboard(),
         )
         return
 
-    if user_message == "🤖 AI Assistant":
-        await update.message.reply_text(
-            "🤖 AI Assistant ready.\n\n"
-            "अपना study question भेजो."
-        )
-        return
-
-    if user_message == "📚 My History":
-        await update.message.reply_text(
-            "📚 History feature अभी next step में जोड़ेंगे."
-        )
-        return
-
-    if user_message == "⚙️ Settings":
-        await update.message.reply_text(
-            "⚙️ Settings के लिए /settings use करो.",
-            reply_markup=MENU_KEYBOARD,
-        )
-        return
-
-    if user_message == "ℹ️ Help":
-        await update.message.reply_text(
-            "ℹ️ Help के लिए /help use करो.",
-            reply_markup=MENU_KEYBOARD,
-        )
-        return
-
-    if user_message == "🌐 Language":
-        await update.message.reply_text(
-            "🌐 Language के लिए /language use करो.",
-            reply_markup=MENU_KEYBOARD,
-        )
-        return
+    preferred_language_instruction = profile["instruction"]
 
     if is_greeting(user_message):
-        reply_text = (
-            "👋 Hello!\n\n"
-            "मैं Study Helper AI हूँ।\n"
-            "आप अपना कोई भी Study Question पूछ सकते हैं।"
-        )
-        await update.message.reply_text(reply_text, reply_markup=MENU_KEYBOARD)
+        try:
+            reply_text = await generate_response(
+                user_text=(
+                    "Reply with a short, warm greeting and ask the user "
+                    "to send a study question."
+                ),
+                intent="chat",
+                history=[],
+                preferred_language_instruction=preferred_language_instruction,
+            )
+        except Exception as exc:
+            logger.exception(f"Greeting generation failed: {exc}")
+            reply_text = "Hello! Send me a study question."
+
+        await update.message.reply_text(reply_text)
+
         await save_chat_history(
             telegram_user_id=user.id,
             username=user.username,
@@ -112,6 +75,7 @@ async def message_handler(
             user_text=user_message,
             intent=intent,
             history=memory,
+            preferred_language_instruction=preferred_language_instruction,
         )
     except Exception as exc:
         logger.exception(f"AI response failed: {exc}")
@@ -120,7 +84,7 @@ async def message_handler(
             "थोड़ी देर बाद फिर कोशिश करें।"
         )
 
-    await update.message.reply_text(ai_reply, reply_markup=MENU_KEYBOARD)
+    await update.message.reply_text(ai_reply)
 
     await save_chat_history(
         telegram_user_id=user.id,
@@ -129,4 +93,4 @@ async def message_handler(
         user_message=user_message,
         bot_reply=ai_reply,
         intent=intent,
-    )
+)
