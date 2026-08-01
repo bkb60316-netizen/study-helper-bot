@@ -9,6 +9,7 @@ from services.ai_router import generate_response
 from services.database import database
 from services.logger import logger
 from services.memory import get_recent_chat_history
+from services.user_settings import get_user_language_profile
 
 IST = ZoneInfo("Asia/Kolkata")
 
@@ -273,6 +274,7 @@ async def generate_quiz_text_for_user(
     telegram_user_id: int,
     quiz_topic: str,
     difficulty: str,
+    preferred_language_instruction: str = "English",
 ) -> str:
     memory = await asyncio.to_thread(get_recent_chat_history, telegram_user_id, 8)
 
@@ -306,7 +308,12 @@ async def generate_quiz_text_for_user(
         "- Keep the output clean and easy to read.\n"
     )
 
-    return await generate_response(prompt, intent="quiz", history=memory)
+    return await generate_response(
+        prompt,
+        intent="quiz",
+        history=memory,
+        preferred_language_instruction=preferred_language_instruction,
+    )
 
 
 async def save_quiz_history(
@@ -331,7 +338,7 @@ def build_quiz_status_text(setting: dict | None) -> str:
     if not setting:
         return (
             "📅 Daily Quiz\n\n"
-            "यह by default ON रहेगा.\n\n"
+            "This will be enabled by default after language selection.\n\n"
             "Commands:\n"
             "/quiz off\n"
             "/quiz time 20:00\n"
@@ -375,11 +382,19 @@ async def send_due_quizzes(context: ContextTypes.DEFAULT_TYPE) -> None:
         difficulty = row.get("difficulty") or DEFAULT_DIFFICULTY
         quiz_time = row.get("quiz_time") or DEFAULT_QUIZ_TIME
 
+        user_profile = await get_user_language_profile(telegram_user_id)
+        if not user_profile:
+            logger.info(
+                f"Skipping daily quiz; no language selected | user_id={telegram_user_id}"
+            )
+            continue
+
         try:
             quiz_text = await generate_quiz_text_for_user(
                 telegram_user_id=telegram_user_id,
                 quiz_topic=quiz_topic,
                 difficulty=difficulty,
+                preferred_language_instruction=user_profile["instruction"],
             )
 
             await context.bot.send_message(
@@ -420,4 +435,4 @@ def register_quiz_scheduler(application: Application) -> None:
         interval=300,
         first=60,
         name="daily_quiz_checker",
-        )
+)
