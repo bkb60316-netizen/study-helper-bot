@@ -13,6 +13,7 @@ async def generate_response(
     user_text: str,
     intent: str = "chat",
     history: list[dict] | None = None,
+    preferred_language_instruction: str = "English",
 ) -> str:
     provider = (config.default_ai_provider or "openrouter").lower().strip()
     history = history or []
@@ -30,6 +31,7 @@ async def generate_response(
                 user_text=user_text,
                 intent=intent,
                 history=history,
+                preferred_language_instruction=preferred_language_instruction,
             )
         except Exception as exc:
             last_error = exc
@@ -38,15 +40,22 @@ async def generate_response(
     raise AIRouterError("All AI providers failed") from last_error
 
 
-def _build_messages(user_text: str, intent: str, history: list[dict]) -> list[dict]:
+def _build_messages(
+    user_text: str,
+    intent: str,
+    history: list[dict],
+    preferred_language_instruction: str,
+) -> list[dict]:
     messages = [
         {
             "role": "system",
-            "content": build_system_prompt(intent),
+            "content": build_system_prompt(
+                intent=intent,
+                preferred_language_instruction=preferred_language_instruction,
+            ),
         }
     ]
 
-    # keep only recent context
     for item in history[-10:]:
         role = item.get("role")
         content = item.get("content")
@@ -72,13 +81,19 @@ async def _generate_with_openrouter(
     user_text: str,
     intent: str,
     history: list[dict],
+    preferred_language_instruction: str,
 ) -> str:
     if not config.openrouter_api_key:
         raise AIRouterError("OPENROUTER_API_KEY is missing")
 
     payload = {
         "model": config.openrouter_model,
-        "messages": _build_messages(user_text, intent, history),
+        "messages": _build_messages(
+            user_text=user_text,
+            intent=intent,
+            history=history,
+            preferred_language_instruction=preferred_language_instruction,
+        ),
         "temperature": 0.4,
     }
 
@@ -111,11 +126,15 @@ async def _generate_with_google(
     user_text: str,
     intent: str,
     history: list[dict],
+    preferred_language_instruction: str,
 ) -> str:
     if not config.google_api_key:
         raise AIRouterError("GOOGLE_API_KEY is missing")
 
-    system_prompt = build_system_prompt(intent)
+    system_prompt = build_system_prompt(
+        intent=intent,
+        preferred_language_instruction=preferred_language_instruction,
+    )
 
     url = (
         f"https://generativelanguage.googleapis.com/v1beta/"
@@ -125,7 +144,6 @@ async def _generate_with_google(
 
     contents = []
 
-    # convert chat history into Gemini format
     for item in history[-10:]:
         role = item.get("role")
         content = item.get("content")
