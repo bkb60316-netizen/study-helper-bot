@@ -32,7 +32,9 @@ def create_application() -> Application:
     application.add_handler(CommandHandler("settings", settings_command))
     application.add_handler(CommandHandler("quiz", quiz_command))
 
-    application.add_handler(CallbackQueryHandler(language_callback, pattern=r"^lang:"))
+    application.add_handler(
+        CallbackQueryHandler(language_callback, pattern=r"^lang:")
+    )
 
     application.add_handler(
         MessageHandler(
