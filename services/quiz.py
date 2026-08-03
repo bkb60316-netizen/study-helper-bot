@@ -3,6 +3,7 @@ import re
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, ContextTypes
 
 from services.ai_router import generate_response
@@ -339,12 +340,7 @@ def build_quiz_status_text(setting: dict | None) -> str:
         return (
             "📅 Daily Quiz\n\n"
             "This will be enabled by default after language selection.\n\n"
-            "Commands:\n"
-            "/quiz off\n"
-            "/quiz time 20:00\n"
-            "/quiz topic Physics\n"
-            "/quiz difficulty medium\n"
-            "/quiz now"
+            "Use the buttons below to change quiz settings."
         )
 
     enabled = "ON" if setting.get("enabled") else "OFF"
@@ -360,13 +356,71 @@ def build_quiz_status_text(setting: dict | None) -> str:
         f"Topic: {quiz_topic}\n"
         f"Difficulty: {difficulty}\n"
         f"Next Run: {next_run_at}\n\n"
-        "Commands:\n"
-        "/quiz off\n"
-        "/quiz time HH:MM\n"
-        "/quiz topic <topic>\n"
-        "/quiz difficulty easy|medium|hard\n"
-        "/quiz now"
+        "Use the buttons below to change the settings."
     )
+
+
+def build_quiz_status_keyboard(setting: dict | None) -> InlineKeyboardMarkup:
+    enabled = bool(setting.get("enabled")) if setting else DEFAULT_QUIZ_ENABLED
+
+    toggle_text = "✅ Disable Quiz" if enabled else "▶️ Enable Quiz"
+
+    keyboard = [
+        [
+            InlineKeyboardButton(toggle_text, callback_data="quiz:toggle"),
+            InlineKeyboardButton("📝 Generate Now", callback_data="quiz:now"),
+        ],
+        [
+            InlineKeyboardButton("⏰ Set Time", callback_data="quiz:time_menu"),
+            InlineKeyboardButton("📚 Set Topic", callback_data="quiz:topic"),
+        ],
+        [
+            InlineKeyboardButton("🎯 Difficulty", callback_data="quiz:difficulty_menu"),
+            InlineKeyboardButton("🔄 Refresh", callback_data="quiz:refresh"),
+        ],
+    ]
+
+    return InlineKeyboardMarkup(keyboard)
+
+
+def build_quiz_time_keyboard() -> InlineKeyboardMarkup:
+    keyboard = [
+        [
+            InlineKeyboardButton("7:00 PM", callback_data="quiz:time:19:00"),
+            InlineKeyboardButton("8:00 PM", callback_data="quiz:time:20:00"),
+        ],
+        [
+            InlineKeyboardButton("9:00 PM", callback_data="quiz:time:21:00"),
+            InlineKeyboardButton("10:00 PM", callback_data="quiz:time:22:00"),
+        ],
+        [
+            InlineKeyboardButton("Custom Time", callback_data="quiz:time_custom"),
+            InlineKeyboardButton("⬅️ Back", callback_data="quiz:back"),
+        ],
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+
+def build_quiz_difficulty_keyboard() -> InlineKeyboardMarkup:
+    keyboard = [
+        [
+            InlineKeyboardButton("Easy", callback_data="quiz:difficulty:easy"),
+            InlineKeyboardButton("Medium", callback_data="quiz:difficulty:medium"),
+        ],
+        [
+            InlineKeyboardButton("Hard", callback_data="quiz:difficulty:hard"),
+            InlineKeyboardButton("⬅️ Back", callback_data="quiz:back"),
+        ],
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+
+def build_quiz_topic_prompt() -> str:
+    return "📚 Send your quiz topic now.\n\nExample: Physics, Human Respiration, Newton's Laws"
+
+
+def build_quiz_time_prompt() -> str:
+    return "⏰ Send quiz time in HH:MM format.\n\nExample: 20:30"
 
 
 async def send_due_quizzes(context: ContextTypes.DEFAULT_TYPE) -> None:
