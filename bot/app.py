@@ -13,7 +13,7 @@ from handlers.about import about_command
 from handlers.help import help_command
 from handlers.language import language_callback, language_command
 from handlers.message import message_handler
-from handlers.quiz import quiz_command
+from handlers.quiz import quiz_callback, quiz_command
 from handlers.settings import settings_command
 from handlers.start import start
 
@@ -34,6 +34,9 @@ def create_application() -> Application:
 
     application.add_handler(
         CallbackQueryHandler(language_callback, pattern=r"^lang:")
+    )
+    application.add_handler(
+        CallbackQueryHandler(quiz_callback, pattern=r"^quiz:")
     )
 
     application.add_handler(
