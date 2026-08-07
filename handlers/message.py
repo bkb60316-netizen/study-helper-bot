@@ -8,6 +8,11 @@ from services.history import save_chat_history
 from services.intent import detect_intent, is_greeting
 from services.logger import logger
 from services.memory import get_recent_chat_history
+from services.quiz import (
+    compute_next_run_at,
+    ensure_default_quiz_setting,
+    save_quiz_setting,
+)
 from services.user_settings import (
     build_language_keyboard,
     build_language_required_text,
@@ -38,7 +43,60 @@ async def message_handler(
         )
         return
 
-    preferred_language_instruction = profile["instruction"]
+    # quiz topic input
+    if context.user_data.get("awaiting_quiz_topic"):
+        context.user_data.pop("awaiting_quiz_topic", None)
+        await save_quiz_setting(
+            telegram_user_id=user.id,
+            username=user.username,
+            first_name=user.first_name,
+            quiz_topic=user_message,
+        )
+        await update.message.reply_text(
+            f"📚 Quiz topic set to: {user_message}"
+        )
+        return
+
+    # quiz time input
+    if context.user_data.get("awaiting_quiz_time"):
+        try:
+            quiz_time = user_message.replace(" ", "")
+            # normalize_quiz_time is inside services.quiz but not imported here yet
+            from services.quiz import normalize_quiz_time  # local import to avoid cycle
+
+            quiz_time = normalize_quiz_time(quiz_time)
+        except Exception:
+            await update.message.reply_text(
+                "Please send time in HH:MM format.\nExample: 20:30"
+            )
+            return
+
+        context.user_data.pop("awaiting_quiz_time", None)
+
+        setting = await save_quiz_setting(
+            telegram_user_id=user.id,
+            username=user.username,
+            first_name=user.first_name,
+            quiz_time=quiz_time,
+        )
+
+        if setting.get("enabled"):
+            next_run_at = compute_next_run_at(quiz_time)
+            await save_quiz_setting(
+                telegram_user_id=user.id,
+                next_run_at=next_run_at,
+            )
+
+        await update.message.reply_text(
+            f"⏰ Quiz time set to {quiz_time} IST."
+        )
+        return
+
+    await ensure_default_quiz_setting(
+        telegram_user_id=user.id,
+        username=user.username,
+        first_name=user.first_name,
+    )
 
     if is_greeting(user_message):
         try:
@@ -49,7 +107,7 @@ async def message_handler(
                 ),
                 intent="chat",
                 history=[],
-                preferred_language_instruction=preferred_language_instruction,
+                preferred_language_instruction=profile["instruction"],
             )
         except Exception as exc:
             logger.exception(f"Greeting generation failed: {exc}")
@@ -75,7 +133,7 @@ async def message_handler(
             user_text=user_message,
             intent=intent,
             history=memory,
-            preferred_language_instruction=preferred_language_instruction,
+            preferred_language_instruction=profile["instruction"],
         )
     except Exception as exc:
         logger.exception(f"AI response failed: {exc}")
@@ -93,4 +151,4 @@ async def message_handler(
         user_message=user_message,
         bot_reply=ai_reply,
         intent=intent,
-    )
+        )
